@@ -1,9 +1,16 @@
 #!/usr/bin/env python
 from hcpxnat.interface import HcpInterface
+from datetime import datetime
 import envoy
 
-idb = HcpInterface(config='/home/NRG/mhilem01/.hcpxnat_intradb.cfg')
-outf = '/home/NRG/mhilem01/temp/hcp_phase2_resources.csv'
+# Use hcpxnat config file or assign each instance variable, e.g.,
+# xnat = HcpInterface(url='http://intradb..', username='user', password='pass', project='Proj')
+idb = HcpInterface(config='/data/intradb/home/hileman/.hcpxnat_intradb.cfg')
+# Set the name for the output Csv
+pipeline = 'dcm2nii'
+timestamp = datetime.now().strftime("%Y%m%d")
+outf = '/data/intradb/home/hileman/pipeline/log/hcp_phase2_%s_%s.csv' % (pipeline, timestamp)
+print outf
 
 if __name__ == "__main__":
     sessions = idb.getSessions(idb.project)
@@ -16,8 +23,8 @@ if __name__ == "__main__":
 
     for s in session_labels:
         sub = s.split('_')[0]
-        command = "python intradbPipelineResources.py -u %s -p %s -H %s -s %s -S %s -P %s -f %s -i all" % \
-                            (idb.username, idb.password, idb.url, sub, s, idb.project, outf)
+        command = "python intradbPipelineResources.py -u %s -p %s -H %s -s %s -S %s -P %s -f %s -i %s" % \
+                            (idb.username, idb.password, idb.url, sub, s, idb.project, outf, pipeline)
         print command
         p = envoy.run(command)
         if p.std_err:

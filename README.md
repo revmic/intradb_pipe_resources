@@ -12,6 +12,7 @@ hcpxnat (see Installation)
 
 Installation:
 ./install.sh
+update.sh is not recommended unless there is a known issue with the hcpxnat interface module.
 
 Usage:
 

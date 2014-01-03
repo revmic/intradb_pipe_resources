@@ -10,7 +10,7 @@ Used as part of the Sanity Check suite.
 """
 __author__ = "Michael Hileman"
 __email__ = "hilemanm@mir.wuslt.edu"
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 
 parser = OptionParser(usage='\npython intradbPipelineResources.py -u user -p pass ' +
             '-H hostname -s 100307 -S 100307_strc -P HCP_Phase2 -i all\n' +
@@ -70,8 +70,8 @@ def verifyValidation():
 
 def verifyFacemask():
     """
-    Checks for Facemask resource for appropriate scan types:
-    Bias_Receive, Bias_Transmit, T1w, and T2w
+    Checks for DICOM_DEFACE resource and also NIFTI_RAW (if NIFTI exists)
+    for appropriate scan types: Bias_Receive, Bias_Transmit, T1w, and T2w
     """
     print "--Verifying Facemask"
     resource_dict = {}
@@ -95,13 +95,13 @@ def verifyFacemask():
         msg = 'pass'
 
         if 'DICOM_DEFACED' not in resource_dict[scanid]:
-            msg = "(" + scan_type + ") missing DICOM_DEFACED. Run Facemask."
+            msg = "Missing DICOM_DEFACED. Run Facemask."
             status = False
         if 'NIFTI' in resource_dict[scanid] and 'NIFTI_RAW' not in resource_dict[scanid]:
-            msg = "(" + scan_type + ") has NIFTI but is missing NIFTI_RAW"
+            msg = "Has NIFTI but is missing NIFTI_RAW resource"
             status = False
 
-        lname = 'Verify facemask - Dicom and RAW Nifti'
+        lname = 'Verify facemask resources'
         writeCsv(scanid, 'facemask', lname, status, msg)
 
 
@@ -133,7 +133,7 @@ def verifyNifti():
         if 'NIFTI' not in resource_dict[scanid]["resources"]:
             msg = "Missing NIFTI resource. Run dcm2nii."
             print msg
-            writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti', False, msg)
+            writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti conversion', False, msg)
             # Skip following checks since resource doesn't exist for comparison
             continue
 
@@ -240,17 +240,22 @@ def writeCsv(scan_num, check_sname, check_lname, success, desc):
     csv_file.write(row + '\n')
 
 
+def getSessionsByDate(cutoff):
+    return ['100307_fnca', '100408_fncb']
+
+
 if __name__ == '__main__':
     print "Verifying %s on %s for project %s" % (opts.pipeline, idb.url, idb.project)
     print "Subject: %s - Session: %s" % (idb.subject_label, idb.session_label)
 
     """ TODO
     if opts.cutoff:
-        session_list = getSessions(opts.cutoff)
+        session_list = getSessionsByDate(opts.cutoff)
         for s in session_list:
             idb.session_label = s
             idb.subject_label = s.split('_')
             verifyAll()
+        sys.exit(0)
     """
 
     if opts.pipeline == "all":
