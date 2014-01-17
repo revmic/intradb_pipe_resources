@@ -2,7 +2,6 @@ from hcpxnat.interface import HcpInterface
 from optparse import OptionParser
 import time
 import sys
-import csv
 
 """
 Checks for the existence of intradb resources.
@@ -10,7 +9,7 @@ Used as part of the Sanity Check suite.
 """
 __author__ = "Michael Hileman"
 __email__ = "hilemanm@mir.wuslt.edu"
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
 parser = OptionParser(usage='\npython intradbPipelineResources.py -u user -p pass ' +
             '-H hostname -s 100307 -S 100307_strc -P HCP_Phase2 -i all\n' +
@@ -80,6 +79,7 @@ def verifyFacemask():
         (idb.project, idb.subject_label, idb.session_label)
     resources = idb.getJson(uri)
 
+    # Build resources dictionary
     for r in resources:
         scan_type = r.get('cat_desc')
         scan_id = r.get('cat_id')
@@ -133,9 +133,12 @@ def verifyNifti():
         if 'NIFTI' not in resource_dict[scanid]["resources"]:
             msg = "Missing NIFTI resource. Run dcm2nii."
             print msg
-            writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti conversion', False, msg)
-            # Skip following checks since resource doesn't exist for comparison
+            status = False
+        writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti conversion', status, msg)
+
+        if status == False:
             continue
+            # Skip following checks since resource doesn't exist for comparison
 
         if resource_dict[scanid]["type"] in deface_types:
             # Check for NIFTI_RAW
