@@ -2,7 +2,6 @@ from hcpxnat.interface import HcpInterface
 from optparse import OptionParser
 import time
 import sys
-import csv
 
 
 """
@@ -84,6 +83,7 @@ def verifyFacemask():
         (idb.project, idb.subject_label, idb.session_label)
     resources = idb.getJson(uri)
 
+    # Build resources dictionary
     for r in resources:
         scan_type = r.get('cat_desc')
         scan_id = r.get('cat_id')
@@ -144,9 +144,12 @@ print "--Verifying DicomToNifti"
         if 'NIFTI' not in resource_dict[scanid]["resources"]:
             msg = "Missing NIFTI resource. Run dcm2nii."
             print msg
-            writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti conversion', False, msg)
-            # Skip following checks since resource doesn't exist for comparison
+            status = False
+        writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti conversion', status, msg)
+
+        if status == False:
             continue
+            # Skip following checks since resource doesn't exist for comparison
 
         if resource_dict[scanid]["type"] in deface_types:
             # We want to check against the defaced Dicoms in this case
