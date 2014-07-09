@@ -4,13 +4,14 @@ import time
 import sys
 import csv
 
+
 """
-Checks for the existence of intradb resources.
+Checks for the existence of intradb pipeline resources.
 Used as part of the Sanity Check suite.
 """
 __author__ = "Michael Hileman"
 __email__ = "hilemanm@mir.wuslt.edu"
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
 parser = OptionParser(usage='\npython intradbPipelineResources.py -u user -p pass ' +
             '-H hostname -s 100307 -S 100307_strc -P HCP_Phase2 -i all\n' +
@@ -29,6 +30,7 @@ parser.add_option("-d", "--cutoff-date", action="store", type="string", dest="cu
     help="Check sessions back to a given date (format=YYYYDDMM)")
 (opts, args) = parser.parse_args()
 
+
 if not opts.username:
     parser.print_help()
     sys.exit(-1)
@@ -42,6 +44,8 @@ if opts.csv:
 
 idb = HcpInterface(opts.hostname, opts.username, opts.password, opts.project)
 idb.subject_label = opts.subject
+
+
 idb.session_label = opts.session
 
 deface_types = ('Bias_Transmit', 'Bias_Receive', 'T1w', 'T2w')
@@ -55,7 +59,7 @@ def verifyValidation():
     uri = '/REST/experiments?xsiType=val:protocolData&project=%s&session_label=%s' % \
         (idb.project, idb.session_label)
     validation = idb.getJson(uri)
-
+    
     if validation:
         msg = "ProtocolVal resource exists"
         status = True
@@ -110,7 +114,8 @@ def verifyNifti():
     Every scan should have NIFTI, and if facemask scan type,
     there should be NIFTI_RAW and NIFTI should be newer than DICOM_DEFACED
     """
-    print "--Verifying DicomToNifti"
+    
+print "--Verifying DicomToNifti"
 
     # Collect all scan resources into dictionary
     resource_dict = {}
@@ -129,6 +134,12 @@ def verifyNifti():
     for scanid, value in resource_dict.iteritems():
         status = True
         msg = 'pass'
+        
+        nii_uri = '/REST/projects/%s/subjects/%s/experiments/%s/scans/%s/resources/NIFTI/files' % \
+                   (idb.project, idb.subject_label, idb.session_label, scanid)
+        dcm_uri = '/REST/projects/%s/subjects/%s/experiments/%s/scans/%s/resources/DICOM/files' % \
+                   (idb.project, idb.subject_label, idb.session_label, scanid)
+
         # Check that all have NIFTI
         if 'NIFTI' not in resource_dict[scanid]["resources"]:
             msg = "Missing NIFTI resource. Run dcm2nii."
@@ -138,6 +149,10 @@ def verifyNifti():
             continue
 
         if resource_dict[scanid]["type"] in deface_types:
+            # We want to check against the defaced Dicoms in this case
+            dcm_uri = '/REST/projects/%s/subjects/%s/experiments/%s/scans/%s/resources/DICOM_DEFACED/files' % \
+                       (idb.project, idb.subject_label, idb.session_label, scanid)
+
             # Check for NIFTI_RAW
             if 'NIFTI_RAW' not in resource_dict[scanid]["resources"]:
                 msg = "Defaced scan (" + scanid + ") is missing NIFTI_RAW resource"
@@ -145,31 +160,27 @@ def verifyNifti():
                 writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti', False, msg)
                 continue
 
-            # Check dates
-            nii_uri = '/REST/projects/%s/subjects/%s/experiments/%s/scans/%s/resources/NIFTI/files' % \
-                        (idb.project, idb.subject_label, idb.session_label, scanid)
-            dcm_uri = '/REST/projects/%s/subjects/%s/experiments/%s/scans/%s/resources/DICOM_DEFACED/files' % \
-                        (idb.project, idb.subject_label, idb.session_label, scanid)
+        # Check that NIFTI files are newer than DICOM
+        nifti_files = idb.getJson(nii_uri)
+        dicom_files = idb.getJson(dcm_uri)
 
-            nifti_files = idb.getJson(nii_uri)
-            dicom_files = idb.getJson(dcm_uri)
+        try:
+            dt = idb.getHeaderField(nifti_files[0].get('URI'), 'Last-Modified')
+            nii_date = time.strptime(dt, "%a, %d %b %Y %H:%M:%S %Z")
+            dt = idb.getHeaderField(dicom_files[0].get('URI'), 'Last-Modified')
+            dcm_date = time.strptime(dt, "%a, %d %b %Y %H:%M:%S %Z")
+        except IndexError:
+            msg = "Cannot check dates for DICOM and NIFTI - one or both resources do not exist"
+            print msg
+            writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti', False, msg)
+            continue
 
-            try:
-                dt = idb.getHeaderField(nifti_files[0].get('URI'), 'Last-Modified')
-                nii_date = time.strptime(dt, "%a, %d %b %Y %H:%M:%S %Z")
-                dt = idb.getHeaderField(dicom_files[0].get('URI'), 'Last-Modified')
-                dcm_date = time.strptime(dt, "%a, %d %b %Y %H:%M:%S %Z")
-            except IndexError:
-                msg = "Cannot check dates for DICOM_DEFACED and NIFTI - one or both resources do not exist"
-                print msg
-                writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti', False, msg)
-                continue
+        if nii_date < dcm_date:
+            msg = "NIFTI resource is older than DICOM"
+            print msg
+            status = False
 
-            if nii_date < dcm_date:
-                msg = "NIFTI resource is older than DICOM_DEFACED"
-                print msg
-                status = False
-            writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti', status, msg)
+        writeCsv(scanid, 'dcm2nii', 'Dicom to Nifti', status, msg)
 
 
 def verifyQC():

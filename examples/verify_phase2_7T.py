@@ -6,10 +6,11 @@ import envoy
 # Use hcpxnat config file or assign each instance variable, e.g.,
 # xnat = HcpInterface(url='http://intradb..', username='user', password='pass', project='Proj')
 idb = HcpInterface(config='/data/intradb/home/hileman/.hcpxnat_intradb.cfg')
-# Set the name for the output Csv
+idb.project = 'Phase2_7T'
+# Check resources for which pipeline?
 pipeline = 'dcm2nii'
 timestamp = datetime.now().strftime("%Y%m%d")
-outf = '/data/intradb/home/hileman/pipeline/log/hcp_phase2_%s_%s.csv' % (pipeline, timestamp)
+outf = '/data/intradb/home/hileman/pipeline/log/hcp_phase2_7T_%s_%s.csv' % (pipeline, timestamp)
 print outf
 
 if __name__ == "__main__":
