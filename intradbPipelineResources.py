@@ -1,5 +1,6 @@
 from hcpxnat.interface import HcpInterface
 from optparse import OptionParser
+from datetime import datetime
 import time
 import sys
 
@@ -10,7 +11,7 @@ Used as part of the Sanity Check suite.
 """
 __author__ = "Michael Hileman"
 __email__ = "hilemanm@mir.wuslt.edu"
-__version__ = "0.8.2"
+__version__ = "0.9.0"
 
 parser = OptionParser(usage='\npython intradbPipelineResources.py -u user -p pass ' +
             '-H hostname -s 100307 -S 100307_strc -P HCP_Phase2 -i all\n' +
@@ -114,8 +115,7 @@ def verifyNifti():
     Every scan should have NIFTI, and if facemask scan type,
     there should be NIFTI_RAW and NIFTI should be newer than DICOM_DEFACED
     """
-    
-print "--Verifying DicomToNifti"
+    print "--Verifying DicomToNifti"
 
     # Collect all scan resources into dictionary
     resource_dict = {}
@@ -255,22 +255,37 @@ def writeCsv(scan_num, check_sname, check_lname, success, desc):
 
 
 def getSessionsByDate(cutoff):
-    return ['100307_fnca', '100408_fncb']
+    session_lbls = list()
+    cutoff_dt = datetime.strptime(cutoff, "%Y%m%d")
+    sessions = idb.getSessions(project=idb.project)
+
+    for s in sessions:
+        session_dt = datetime.strptime(s.get('date'), "%Y-%m-%d")
+
+        if session_dt > cutoff_dt:
+            session_lbls.append(s.get('label'))
+
+    return session_lbls
 
 
 if __name__ == '__main__':
-    print "Verifying %s on %s for project %s" % (opts.pipeline, idb.url, idb.project)
-    print "Subject: %s - Session: %s" % (idb.subject_label, idb.session_label)
 
-    """ TODO
     if opts.cutoff:
         session_list = getSessionsByDate(opts.cutoff)
+
+        if not session_list:
+            print "No sessions found for given cutoff date -", opts.cutoff
+        else:
+            print "Verifying all resources for %s sessions after %s" % (len(session_list), opts.cutoff)
+
         for s in session_list:
             idb.session_label = s
-            idb.subject_label = s.split('_')
+            idb.subject_label = s.split('_')[0]
             verifyAll()
         sys.exit(0)
-    """
+
+    print "Verifying %s on %s for project %s" % (opts.pipeline, idb.url, idb.project)
+    print "Subject: %s - Session: %s" % (idb.subject_label, idb.session_label)
 
     if opts.pipeline == "all":
         verifyAll()
