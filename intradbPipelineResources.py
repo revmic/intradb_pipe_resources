@@ -11,10 +11,10 @@ Used as part of the Sanity Check suite.
 """
 __author__ = "Michael Hileman"
 __email__ = "hilemanm@mir.wuslt.edu"
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 parser = OptionParser(usage='\npython intradbPipelineResources.py -u user -p pass ' +
-            '-H hostname -s 100307 -S 100307_strc -P HCP_Phase2 -i all\n' +
+            '-H hostname -s 100307 -S 100307_strc -P HCP_Phase2 -i all -f out.csv\n' +
             'Cutoff Date Usage:\npython intradbPipelineResources.py -u user -p pass ' +
             '-H hostname -P HCP_Phase2 -d 20131210')
 parser.add_option("-u", "--username", action="store", type="string", dest="username")
@@ -26,8 +26,10 @@ parser.add_option("-P", "--project", action="store", type="string", dest="projec
 parser.add_option("-f", "--csv-file", action="store", type="string", dest="csv")
 parser.add_option("-i", "--pipeline", action="store", type="string", dest="pipeline",
     help='validation, facemask, dcm2nii, level2qc, or all')
+#parser.add_option("-t", "--timestamp", action="store", type="string", dest="timestamp",
+#    help='Check that pipeline resource is newer than given timestamp. (format=YYYYMMDD)')
 parser.add_option("-d", "--cutoff-date", action="store", type="string", dest="cutoff",
-    help="Check sessions back to a given date (format=YYYYDDMM)")
+    help="Check sessions back to a given date. (format=YYYYMMDD)")
 (opts, args) = parser.parse_args()
 
 
@@ -41,6 +43,8 @@ if opts.csv:
     except:
         print "Problem with file " + opts.csv
         exit(-1)
+else:
+    print "No CSV option"
 
 idb = HcpInterface(opts.hostname, opts.username, opts.password, opts.project)
 idb.subject_label = opts.subject
@@ -48,7 +52,8 @@ idb.subject_label = opts.subject
 
 idb.session_label = opts.session
 
-deface_types = ('Bias_Transmit', 'Bias_Receive', 'T1w', 'T2w')
+deface_types = ('Bias_Transmit', 'Bias_Receive', 'T1w', 'T2w', 'T1w_MEG', 'T2w_MEG')
+deface_seriesdescs = ('BIAS_BC', 'BIAS_32CH', 'AFI', 'T1w_MPR1', 'T2w_SPC1', 'T1w_MPR2', 'T2w_SPC2')
 
 
 def verifyValidation():
@@ -75,7 +80,7 @@ def verifyValidation():
 def verifyFacemask():
     """
     Checks for DICOM_DEFACE resource and also NIFTI_RAW (if NIFTI exists)
-    for appropriate scan types: Bias_Receive, Bias_Transmit, T1w, and T2w
+    for appropriate scan types: AFI, Bias_Receive, Bias_Transmit, T1w, and T2w
     """
     print "--Verifying Facemask"
     resource_dict = {}
@@ -87,6 +92,7 @@ def verifyFacemask():
     # Build resources dictionary
     for r in resources:
         scan_type = r.get('cat_desc')
+        series_description = r.get('series_description')
         scan_id = r.get('cat_id')
         resource_label = r.get('label')
 
@@ -102,9 +108,11 @@ def verifyFacemask():
         if 'DICOM_DEFACED' not in resource_dict[scanid]:
             msg = "Missing DICOM_DEFACED. Run Facemask."
             status = False
-        if 'NIFTI' in resource_dict[scanid] and 'NIFTI_RAW' not in resource_dict[scanid]:
-            msg = "Has NIFTI but is missing NIFTI_RAW resource"
-            status = False
+
+        # This is already checked in verifyNifti()
+        # if 'NIFTI' in resource_dict[scanid] and 'NIFTI_RAW' not in resource_dict[scanid]:
+        #     msg = "Has NIFTI but is missing NIFTI_RAW resource"
+        #     status = False
 
         lname = 'Verify facemask resources'
         writeCsv(scanid, 'facemask', lname, status, msg)
@@ -213,9 +221,9 @@ def verifyQC():
     # Check that each scan that should has an assessment
     for scan in scans:
         sd = scan.get('series_description').lower()
-        if (sd.startswith('bold') or sd.startswith('dwi') or sd.startswith('t1w') or sd.startswith('t2w')) \
-            and not (sd.endswith('sbref') or sd.endswith('sbref_old') or sd.endswith('se')
-                     or sd.endswith('se_old') or sd.endswith('meg')):
+        if (sd.startswith('bold') or 'fmri' in sd) \
+           and not (sd.endswith('sbref') or sd.endswith('sbref_old') or sd.endswith('se') \
+           or sd.endswith('se_old') or sd.endswith('meg')):
             needs_qc.append(scan.get('ID'))
 
     for s in needs_qc:
@@ -254,13 +262,18 @@ def writeCsv(scan_num, check_sname, check_lname, success, desc):
     csv_file.write(row + '\n')
 
 
-def getSessionsByDate(cutoff):
+def getSessionsByDate():
     session_lbls = list()
-    cutoff_dt = datetime.strptime(cutoff, "%Y%m%d")
+    cutoff_dt = datetime.strptime(opts.cutoff, "%Y%m%d")
     sessions = idb.getSessions(project=idb.project)
 
     for s in sessions:
-        session_dt = datetime.strptime(s.get('date'), "%Y-%m-%d")
+        try:
+            session_dt = datetime.strptime(s.get('date'), "%Y-%m-%d")
+            print s['label'], session_dt
+        except ValueError:
+            print "Couldn't get date for", s['label']
+            continue
 
         if session_dt > cutoff_dt:
             session_lbls.append(s.get('label'))
@@ -271,7 +284,7 @@ def getSessionsByDate(cutoff):
 if __name__ == '__main__':
 
     if opts.cutoff:
-        session_list = getSessionsByDate(opts.cutoff)
+        session_list = getSessionsByDate()
 
         if not session_list:
             print "No sessions found for given cutoff date -", opts.cutoff
@@ -297,3 +310,5 @@ if __name__ == '__main__':
         verifyNifti()
     elif opts.pipeline == "level2qc":
         verifyQC()
+    csv_file.close()
+ 

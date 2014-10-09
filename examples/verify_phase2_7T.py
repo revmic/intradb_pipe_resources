@@ -10,7 +10,7 @@ idb.project = 'Phase2_7T'
 # Check resources for which pipeline?
 pipeline = 'dcm2nii'
 timestamp = datetime.now().strftime("%Y%m%d")
-outf = '/data/intradb/home/hileman/pipeline/log/hcp_phase2_7T_%s_%s.csv' % (pipeline, timestamp)
+outf = '/data/intradb/home/hileman/pipeline/log/%s_%s_%s.csv' % (idb.project, pipeline, timestamp)
 print outf
 
 if __name__ == "__main__":
