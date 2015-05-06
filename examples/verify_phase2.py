@@ -7,7 +7,7 @@ import envoy
 # xnat = HcpInterface(url='http://intradb..', username='user', password='pass', project='Proj')
 idb = HcpInterface(config='/data/intradb/home/hileman/.hcpxnat_intradb.cfg')
 # Check resources for which pipeline?
-pipeline = 'facemask'
+pipeline = 'level2qc'
 timestamp = datetime.now().strftime("%Y%m%d")
 outf = '/data/intradb/home/hileman/pipeline/log/%s_%s_%s.csv' % (idb.project, pipeline, timestamp)
 print outf
@@ -30,4 +30,4 @@ if __name__ == "__main__":
         if p.std_err:
             print p.std_err
 
-    print "Here's yoru output:", outf
+    print "Here's your output:\n", outf

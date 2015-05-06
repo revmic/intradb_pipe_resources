@@ -11,12 +11,12 @@ Used as part of the Sanity Check suite.
 """
 __author__ = "Michael Hileman"
 __email__ = "hilemanm@mir.wuslt.edu"
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 
 parser = OptionParser(usage='\npython intradbPipelineResources.py -u user -p pass ' +
             '-H hostname -s 100307 -S 100307_strc -P HCP_Phase2 -i all -f out.csv\n' +
             'Cutoff Date Usage:\npython intradbPipelineResources.py -u user -p pass ' +
-            '-H hostname -P HCP_Phase2 -d 20131210')
+            '-H hostname -P HCP_Phase2 -c 20131210')
 parser.add_option("-u", "--username", action="store", type="string", dest="username")
 parser.add_option("-p", "--password", action="store", type="string", dest="password")
 parser.add_option("-H", "--hostname", action="store", type="string", dest="hostname")
@@ -26,9 +26,9 @@ parser.add_option("-P", "--project", action="store", type="string", dest="projec
 parser.add_option("-f", "--csv-file", action="store", type="string", dest="csv")
 parser.add_option("-i", "--pipeline", action="store", type="string", dest="pipeline",
     help='validation, facemask, dcm2nii, level2qc, or all')
-#parser.add_option("-t", "--timestamp", action="store", type="string", dest="timestamp",
-#    help='Check that pipeline resource is newer than given timestamp. (format=YYYYMMDD)')
-parser.add_option("-d", "--cutoff-date", action="store", type="string", dest="cutoff",
+parser.add_option("-t", "--timestamp", action="store", type="string", dest="timestamp",
+    help='Check that pipeline resource is newer than given timestamp. (format=YYYYMMDD)')
+parser.add_option("-c", "--cutoff-date", action="store", type="string", dest="cutoff",
     help="Check sessions back to a given date. (format=YYYYMMDD)")
 (opts, args) = parser.parse_args()
 
@@ -77,10 +77,11 @@ def verifyValidation():
     return status
 
 
+
 def verifyFacemask():
     """
-    Checks for DICOM_DEFACE resource and also NIFTI_RAW (if NIFTI exists)
-    for appropriate scan types: AFI, Bias_Receive, Bias_Transmit, T1w, and T2w
+    Checks for DICOM_DEFACE resource for appropriate scan types: 
+    Bias_Receive, Bias_Transmit, T1w, and T2w (AFI for 7T)
     """
     print "--Verifying Facemask"
     resource_dict = {}
@@ -92,11 +93,17 @@ def verifyFacemask():
     # Build resources dictionary
     for r in resources:
         scan_type = r.get('cat_desc')
-        series_description = r.get('series_description')
+        file_count = r.get('file_count')
+        #series_description = r.get('series_description')
         scan_id = r.get('cat_id')
         resource_label = r.get('label')
 
-        if scan_type in deface_types:
+        #print file_count
+        #print scan_type
+
+        # TODO: Hard coding for Scouts in 7T projects could be more general
+        if (scan_type in deface_types) or \
+           ('AAHScout' in scan_type and '7T' in idb.project and int(file_count) > 10):
             if scan_id not in resource_dict:
                 resource_dict[scan_id] = []
             resource_dict[scan_id].append(resource_label)
@@ -117,6 +124,22 @@ def verifyFacemask():
         lname = 'Verify facemask resources'
         writeCsv(scanid, 'facemask', lname, status, msg)
 
+    if not opts.timestamp:
+        return
+
+    # Check that DICOM_DEFACED is newer than specified timestamp
+    lname = 'Verify facemask resource creation date'
+    msg = "DICOM_DEFACED older than timestamp"
+    idb.resource_label = 'DICOM_DEFACED'
+
+    for r in resources:
+        if r['label'] == 'DICOM_DEFACED':
+            idb.scan_id = r['cat_id']
+            dt = idb.getScanResourceDate()
+            print dt
+        #if r['label'] == 'DICOM_DEFACED' and idb.getScanResourceDate() < opts.timestamp:
+            # Only writes for failures on this test
+            #writeCsv(scanid, 'facemask', lname, False, msg)
 
 def verifyNifti():
     """
@@ -138,6 +161,7 @@ def verifyNifti():
         if scan_id not in resource_dict:
             resource_dict[scan_id] = {"type": scan_type, "resources": []}
         resource_dict[scan_id]["resources"].append(r.get('label'))
+
 
     for scanid, value in resource_dict.iteritems():
         status = True
@@ -294,6 +318,7 @@ if __name__ == '__main__':
         for s in session_list:
             idb.session_label = s
             idb.subject_label = s.split('_')[0]
+            print idb.session_label
             verifyAll()
         sys.exit(0)
 

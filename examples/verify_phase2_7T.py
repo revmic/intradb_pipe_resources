@@ -8,7 +8,7 @@ import envoy
 idb = HcpInterface(config='/data/intradb/home/hileman/.hcpxnat_intradb.cfg')
 idb.project = 'Phase2_7T'
 # Check resources for which pipeline?
-pipeline = 'dcm2nii'
+pipeline = 'level2qc'
 timestamp = datetime.now().strftime("%Y%m%d")
 outf = '/data/intradb/home/hileman/pipeline/log/%s_%s_%s.csv' % (idb.project, pipeline, timestamp)
 print outf

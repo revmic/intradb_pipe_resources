@@ -7,7 +7,7 @@ import envoy
 # xnat = HcpInterface(url='http://intradb..', username='user', password='pass', project='Proj')
 idb = HcpInterface(config='/data/intradb/home/hileman/.hcpxnat_intradb.cfg')
 # Check resources for which pipeline?
-pipeline = 'all'
+pipeline = 'dcm2nii'
 # For which project
 idb.project = 'Mamah_CPC'
 timestamp = datetime.now().strftime("%Y%m%d")

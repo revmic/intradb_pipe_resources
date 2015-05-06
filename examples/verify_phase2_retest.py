@@ -7,17 +7,12 @@ import envoy
 # xnat = HcpInterface(url='http://intradb..', username='user', password='pass', project='Proj')
 idb = HcpInterface(config='/data/intradb/home/hileman/.hcpxnat_intradb.cfg')
 idb.project = 'Phase2_Retest'
-pipeline = 'dcm2nii'
+pipeline = 'facemask'
 timestamp = datetime.now().strftime("%Y%m%d")
 outf = '/data/intradb/home/hileman/pipeline/log/%s_%s_%s.csv' % (idb.project, pipeline, timestamp)
 
 if __name__ == "__main__":
-    sessions = idb.getSessions(idb.project)
-    session_labels = list()
-
-    for s in sessions:
-        session_labels.append(s.get('label'))
-
+    session_labels = [s['label'] for s in idb.getSessions(idb.project)]
     session_labels = sorted(session_labels, key=lambda s: s.split('_')[0])
 
     for s in session_labels:
