@@ -11,7 +11,7 @@ Used as part of the Sanity Check suite.
 """
 __author__ = "Michael Hileman"
 __email__ = "hilemanm@mir.wuslt.edu"
-__version__ = "0.9.2"
+__version__ = "0.9.3"
 
 parser = OptionParser(usage='\npython intradbPipelineResources.py -u user -p pass ' +
             '-H hostname -s 100307 -S 100307_strc -P HCP_Phase2 -i all -f out.csv\n' +
@@ -30,8 +30,8 @@ parser.add_option("-t", "--timestamp", action="store", type="string", dest="time
     help='Check that pipeline resource is newer than given timestamp. (format=YYYYMMDD)')
 parser.add_option("-c", "--cutoff-date", action="store", type="string", dest="cutoff",
     help="Check sessions back to a given date. (format=YYYYMMDD)")
+parser.add_option("-I", "--ignore-unusable", action="store_true", dest="ignore_unusable", default=False)
 (opts, args) = parser.parse_args()
-
 
 if not opts.username:
     parser.print_help()
@@ -48,8 +48,6 @@ else:
 
 idb = HcpInterface(opts.hostname, opts.username, opts.password, opts.project)
 idb.subject_label = opts.subject
-
-
 idb.session_label = opts.session
 
 deface_types = ('Bias_Transmit', 'Bias_Receive', 'T1w', 'T2w', 'T1w_MEG', 'T2w_MEG')
@@ -95,8 +93,11 @@ def verifyFacemask():
         scan_type = r.get('cat_desc')
         file_count = r.get('file_count')
         #series_description = r.get('series_description')
-        scan_id = r.get('cat_id')
+        scan_id = idb.scan_id = r.get('cat_id')
         resource_label = r.get('label')
+
+        if opts.ignore_unusable and idb.getScanXmlElement('xnat:quality') == "unusable":
+            continue
 
         #print file_count
         #print scan_type
@@ -156,7 +157,10 @@ def verifyNifti():
 
     for r in resources:
         scan_type = r.get('cat_desc')
-        scan_id = r.get('cat_id')
+        scan_id = idb.scan_id = r.get('cat_id')
+
+        if opts.ignore_unusable and idb.getScanXmlElement('xnat:quality') == "unusable":
+            continue
 
         if scan_id not in resource_dict:
             resource_dict[scan_id] = {"type": scan_type, "resources": []}
@@ -235,6 +239,7 @@ def verifyQC():
         (idb.project, idb.session_label)
     qc_assessments = idb.getJson(uri)
 
+
     for qc in qc_assessments:
         qc_label = qc.get('label').split('_')
         # Get scan number from scan portion of qc label
@@ -244,7 +249,11 @@ def verifyQC():
 
     # Check that each scan that should has an assessment
     for scan in scans:
+        if opts.ignore_unusable and scan.get('quality') == "unusable":
+            continue
+
         sd = scan.get('series_description').lower()
+
         if (sd.startswith('bold') or 'fmri' in sd) \
            and not (sd.endswith('sbref') or sd.endswith('sbref_old') or sd.endswith('se') \
            or sd.endswith('se_old') or sd.endswith('meg')):

@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     for s in session_labels:
         sub = s.split('_')[0]
-        command = "python intradbPipelineResources.py -u %s -p %s -H %s -s %s -S %s -P %s -f %s -i %s" % \
+        command = "python intradbPipelineResources.py -u %s -p %s -H %s -s %s -S %s -P %s -f %s -i %s -I" % \
                             (idb.username, idb.password, idb.url, sub, s, idb.project, outf, pipeline)
         print command
         p = envoy.run(command)
